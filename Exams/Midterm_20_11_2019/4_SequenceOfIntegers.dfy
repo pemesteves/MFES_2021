@@ -13,12 +13,16 @@ method calcR(n: nat) returns (r: nat)
         decreases n - i
         invariant 0 <= i <= n && r == R(i)
     {
-       i := i + 1;
-       if r  > i {
-           r := r - i;
-       } 
-       else {
+      assert i < n && 0 <= i <= n && r == R(i); //1º
+      assert (r > i + 1 && 0 <= i + 1 <= n && r - i - 1 == R(i + 1)) || (r <= i + 1 && 0 <= i + 1 <= n && r + i + 1 == R(i + 1)); //4º
+        i := i + 1;
+      assert (r > i && 0 <= i <= n && r - i == R(i)) || (r <= i && 0 <= i <= n && r + i == R(i)); //3º
+        if r > i {
+            r := r - i;
+        } 
+        else {
             r := r + i;
         }
+      assert 0 <= i <= n && r == R(i); //2º
     }
 }
