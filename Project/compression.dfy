@@ -20,7 +20,33 @@ function method ToString(n: int) : string
 {   
     if n == 0 then "" else ToString(n / 10) + [(n % 10) as char]
 }
- 
+
+function method IsInt(c: char) : bool 
+{
+    if c <= '9' && c >= '0' then true else false 
+}
+
+function method isAlphaChar(c: char) : bool 
+{
+    if (c <= 'Z' && c >= 'A') || (c <= 'z' && c >= 'a') then true else false 
+}
+
+function method GetInt(s: string, n: int) : string 
+    decreases |s| - n
+    requires n >= 0
+{
+    if n >= |s| then "" else 
+    if IsInt(s[n]) then [s[n]] + GetInt(s, n + 1) 
+    else "" 
+}
+
+function method ParseInt(s: string, i: int) : int
+    decreases i
+    requires 0 <= i < |s|
+{
+    if i == 0 then s[i] as int else (s[i] as int) + 10 * ParseInt(s, i - 1)
+}
+
 class {:autocontracts} Compression {
 
     /*predicate Valid()
@@ -90,6 +116,40 @@ class {:autocontracts} Compression {
         ensures |s| <= |decomp_s|
     {
         decomp_s := "";
+
+        var i := 0; // iterates through the string
+
+        while i < |s| 
+            decreases |s| - i 
+            invariant 0 <= i <= |s|
+        {
+            if(s[i] == '\\') {
+                i := i + 1;
+                if(i < |s| && isAlphaChar(s[i])) {
+                    i := i + 1;
+                    var integerString := GetInt(s, i);
+                    if(|integerString| > 0) {
+                        var integer := ParseInt(integerString, |integerString| - 1);
+                        var j := 0;
+                        while j < integer
+                            decreases integer - j
+                            invariant 0 <= j <= integer 
+                        {
+                            decomp_s := decomp_s + [s[i-1]];
+                            j := j + 1;
+                        }
+                        
+                    } else {
+                        decomp_s := decomp_s + ['\\'] + [s[i-1]];
+                    }
+                } else {
+                    decomp_s := decomp_s + ['\\'];
+                }
+            } else {
+                decomp_s := decomp_s + [s[i]];
+                i := i + 1;
+            }
+        }
     }
 
  
