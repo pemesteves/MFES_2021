@@ -1,17 +1,147 @@
+include "Io.dfy"
 
-newtype {:nativeType "uint"}   uint32 = i:int | 0 <= i < 0x100000000
-newtype {:nativeType "byte"}   byte   = b:int | 0 <= b < 256
+method ArrayFromSeq<A>(s: seq<A>) returns (a: array<A>)
+  ensures a[..] == s
+{
+  a := new A[|s|] ( i requires 0 <= i < |s| => s[i] );
+}
 
-/*method Main(args: array<seq<char>>) {
-    var i := 0;
-    while(i < args.Length)
-        decreases args.Length - i;
-        invariant 0 <= i <= args.Length;
-    {
-        print args[i];
-        i := i + 1;
+// Useful to convert Dafny strings into arrays of characters.
+method copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream) returns (success:bool)
+    requires env.Valid() && env.ok.ok();
+		requires src_name[..] == src.Name();
+		requires src.Name() in env.files.state() && dst.Name() in env.files.state();
+		requires env == src.env == dst.env;
+		requires env.ok == src.env.ok == dst.env.ok;
+		requires env.files == src.env.files == dst.env.files;
+		requires src.IsOpen() && dst.IsOpen();
+		requires src != dst;
+		requires env.files.state()[dst.Name()] == [];
+    modifies env, env.files, env.ok, src, dst, src.env, src.env.ok, src.env.files;
+    ensures  env.ok != null && success == env.ok.ok();
+    ensures var old_files := old(env.files.state());
+			      success
+            ==>
+            env.files != null &&
+            env.files.state() == old_files[old(dst.Name()) := old(env.files.state()[src_name[..]])];    
+{
+  var ok, src_len := FileStream.FileLength(src_name, env);
+  if !ok {
+    print "Failed to find the length of src file: ", src, "\n";
+    return false;
+  }
+
+  var buffer := new byte[src_len];
+  ok := src.Read(0, buffer, 0, src_len);
+  if !ok {
+    print "Failed to read the src file: ", src, "\n";
+    return false;
+  }
+	assert buffer[..] == old(env.files.state()[src_name[..]]);
+	
+  ok := dst.Write(0, buffer, 0, src_len);
+  if !ok {
+    print "Failed to write the dst file: ", dst, "\n";
+    return false;
+  }
+	assert buffer[..] == env.files.state()[dst.Name()];
+	
+  ok := src.Close();
+  if !ok {
+    print "Failed to close the src file: ", src, "\n";
+    return false;
+  }
+	
+  ok := dst.Close();
+  if !ok {
+    print "Failed to close the dst file: ", dst, "\n";
+    return false;
+  }
+
+	return true;
+}
+
+method {:main} Main(ghost env:HostEnvironment)
+  requires env.Valid() && env.ok.ok();
+  modifies env, env.files, env.ok;
+  ensures var args := old(env.constants.CommandLineArgs());
+          var old_files := old(env.files.state());
+	        if !(|args| == 4 && args[2] in old_files && args[3] !in old(env.files.state()) && |args[1]| == 1 && (args[1][0] == '0' || args[1][0] == '1')) then
+						env == old(env) && env.ok == old(env.ok) && env.ok.ok() == old(env.ok.ok())
+					&& env.files == old(env.files) && env.files.state() == old_files 
+					else
+						env.ok != null && 
+						(env.ok.ok() && |args| == 4 && args[2] in old_files && args[3] !in old(env.files.state()) 
+						==> env.files != null &&
+            env.files.state() == old_files[args[3] := old_files[args[2]]]);
+{
+    print "Starting Main";
+
+    var num_args := HostConstants.NumCommandLineArgs(env);
+    if num_args != 4 {
+        print "Expected usage: compression.exe [0|1] [src] [dst]\n";
+        return;
     }
-}*/
+
+    var compression := HostConstants.GetCommandLineArg(1, env);
+    if compression.Length != 1 {
+        print "The first argument should be 1 for compression or 0 for decompression, but instead got: ", compression, "\n";
+        return;
+    }
+
+    if !(compression[0] == '0' || compression[0] == '1') {
+        print "The first argument should be 1 for compression or 0 for decompression, but instead got: ", compression, "\n";
+        return;
+    }  
+
+    var isCompression : bool := if compression[0] == '0' then false else true;
+
+    var src := HostConstants.GetCommandLineArg(2, env);
+    var dst := HostConstants.GetCommandLineArg(3, env);
+
+    var src_exists := FileStream.FileExists(src, env);
+    if !src_exists {
+        print "Couldn't find src file: ", src, "\n";
+        return;
+    }
+
+    var dst_exists := FileStream.FileExists(dst, env);
+    if dst_exists {
+        print "The dst file: ", dst, " already exists.  I don't dare hurt it.\n";
+        return;
+    }
+
+    var ok, src_stream := FileStream.Open(src, env);
+    if !ok {
+        print "Failed to open src file: ", src, "\n";
+        return;
+    }
+
+    var dst_stream;
+    ok, dst_stream := FileStream.Open(dst, env);
+    if !ok {
+        print "Failed to open dst file: ", dst, "\n";
+        return;
+    }
+
+    ok := copy(env, src, src_stream, dst_stream);
+
+}
+
+
+/*
+// A simple test scenario.
+method Main()
+{
+    var compression := new Compression();
+    var s := "aaabbbbbbccc";
+    var comp := compression.compress(s);
+    print comp;
+    assert multiset(s) == multiset("aaa\\b6ccc");
+    var decomp := compression.decompress(comp);
+    assert decomp == s;
+}
+*/
 
 //type T = int // for demo purposes, but could be another type
 
@@ -78,7 +208,7 @@ class {:autocontracts} Compression {
             }
         }
     }
-    method compress(s: string) returns (comp_s: string)
+    method {:verify false} compress(s: string) returns (comp_s: string)
         requires |s| > 0
         ensures |s| >= |comp_s|
     {
@@ -111,7 +241,7 @@ class {:autocontracts} Compression {
         comp_s := comp_s + tmp_s;
     }
 
-    method decompress(s: string)  returns (decomp_s: string)
+    method {:verify false} decompress(s: string)  returns (decomp_s: string)
         requires |s| > 0
         ensures |s| <= |decomp_s|
     {
@@ -153,16 +283,4 @@ class {:autocontracts} Compression {
     }
 
  
-}
- 
-// A simple test scenario.
-method Main()
-{
-    var compression := new Compression();
-    var s := "aaabbbbbbccc";
-    var comp := compression.compress(s);
-    print comp;
-    assert multiset(s) == multiset("aaa\\b6ccc");
-    var decomp := compression.decompress(comp);
-    assert decomp == s;
 }

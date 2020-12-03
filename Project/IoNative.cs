@@ -20,7 +20,7 @@ namespace @__default {
             n = (uint)System.Environment.GetCommandLineArgs().Length;
         }
 
-        public static void GetCommandLineArg(uint i, out char[] arg)
+        public static void GetCommandLineArg(ulong i, out char[] arg)
         {
             arg = System.Environment.GetCommandLineArgs()[i].ToCharArray();
         }
