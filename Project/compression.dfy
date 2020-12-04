@@ -231,6 +231,7 @@ class {:autocontracts} Compression {
         requires |s| > 0
         requires 1 <= index <= |s| && 0 < occ <= index
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
+        ensures 0 < |helpCompress(s, cur_char, occ, index)|
         //ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
     {
         if index >= |s| then 
@@ -248,8 +249,8 @@ class {:autocontracts} Compression {
 
     function method compress(s: string) : string 
         requires |s| > 0
-        //ensures |s| >= compress(s) 
-        //ensures decompress(compress(s)) == s
+        ensures 0 < |compress(s)| 
+        // ensures decompress(compress(s)) == s
     {
         helpCompress(s, s[0], 1, 1)
     }
@@ -261,6 +262,7 @@ class {:autocontracts} Compression {
         requires 1 <= index <= |s| 
         requires fnd_ch ==> s[index-1] == ch && index >= 2
         requires fnd_esc ==> if fnd_ch then s[index - 2] == '\\' else s[index - 1] == '\\'
+        //ensures 0 < |helpDecompress(s, fnd_esc, fnd_ch, ch, index)|
     {
         if index >= |s| then 
             if fnd_esc then 
@@ -294,7 +296,7 @@ class {:autocontracts} Compression {
     
     function method decompress(s: string) : string 
         requires |s| > 0
-        //ensures |s| >= compress(s) 
+        //ensures |s| <= |decompress(s)| 
         //ensures compress(decompress(s)) == s
     {
         helpDecompress(s, s[0] == '\\', false, '\0', 1)
