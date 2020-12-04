@@ -221,17 +221,16 @@ class {:autocontracts} Compression {
         requires |s| > 0
         requires 0 <= index <= |s| && 0 < occ <= index
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
-        ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
+        //ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
     {
-        if index >= |s| then {
+        if index >= |s| then
             RepeatChar(cur_char, occ)
-        } else if s[index] == cur_char then {
+        else if s[index] == cur_char then
             helpCompress(s, cur_char, occ + 1, index + 1)
-        } else if occ <= 3 then {
+        else if occ <= 3 then
             RepeatChar(cur_char, occ) + helpCompress(s, s[index], 1, index + 1)
-        } else {
+        else
             ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)
-        }
     }
 
     method {:verify false} compress(s: string) returns (comp_s: string)
