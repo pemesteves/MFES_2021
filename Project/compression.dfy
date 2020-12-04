@@ -156,7 +156,7 @@ function method IsInt(c: char) : bool
     if c <= '9' && c >= '0' then true else false 
 }
 
-function method isAlphaChar(c: char) : bool 
+function method IsAlphaChar(c: char) : bool 
 {
     if (c <= 'Z' && c >= 'A') || (c <= 'z' && c >= 'a') then true else false 
 }
@@ -175,6 +175,14 @@ function method ParseInt(s: string, i: int) : int
     requires 0 <= i < |s|
 {
     if i == 0 then s[i] as int else (s[i] as int) + 10 * ParseInt(s, i - 1)
+}
+
+function method RepeatChar(c: char, occ: int) : string
+    decreases occ
+    requires occ >= 0
+    ensures |RepeatChar(c, occ)| == occ && forall i :: 0 <= i < occ ==> RepeatChar(c, occ)[i] == c;
+{
+    if occ == 0 then "" else [c] + RepeatChar(c, occ - 1)
 }
 
 class {:autocontracts} Compression {
@@ -208,6 +216,25 @@ class {:autocontracts} Compression {
             }
         }
     }
+
+    function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
+        decreases |s| - index 
+        requires |s| > 0
+        requires 0 <= index <= |s| && 0 < occ <= index
+        requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
+        ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
+    {
+        if index >= |s| then {
+            RepeatChar(cur_char, occ)
+        } else if s[index] == cur_char then {
+            helpCompress(s, cur_char, occ + 1, index + 1)
+        } else if occ <= 3 then {
+            RepeatChar(cur_char, occ) + helpCompress(s, s[index], 1, index + 1)
+        } else {
+            ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)
+        }
+    }
+
     method {:verify false} compress(s: string) returns (comp_s: string)
         requires |s| > 0
         ensures |s| >= |comp_s|
@@ -255,7 +282,7 @@ class {:autocontracts} Compression {
         {
             if(s[i] == '\\') {
                 i := i + 1;
-                if(i < |s| && isAlphaChar(s[i])) {
+                if(i < |s| && IsAlphaChar(s[i])) {
                     i := i + 1;
                     var integerString := GetInt(s, i);
                     if(|integerString| > 0) {
