@@ -125,7 +125,8 @@ method {:main} Main(ghost env:HostEnvironment)
     ok := copy(env, src, src_stream, dst_stream);
 
     var c := new Compression();
-    var s := c.compress("AAAABBBBCCCC");
+    //var s := c.compress("AAAABBBBCCCC");
+    var s := c.decompress("\\A4\\B5");
     print s;
 }
 
@@ -149,6 +150,7 @@ method Main()
 function method ToString(n: int) : string 
     decreases n
     requires n >= 0
+    ensures forall c :: c in ToString(n) ==> '0' <= c <= '9'
 {   
     if n == 0 then "" else ToString(n / 10) + [(n % 10) as char + '0']
 }
@@ -165,7 +167,10 @@ function method IsAlphaChar(c: char) : bool
 
 function method GetInt(s: string, n: int) : string 
     decreases |s| - n
-    requires n >= 0
+    requires n >= 0 
+    ensures 
+        var integerString := GetInt(s, n);
+        |integerString| != 0 ==> forall i :: 0 <= i < |integerString| ==> '0' <= integerString[i] <= '9' 
 {
     if n >= |s| then "" else 
     if IsInt(s[n]) then [s[n]] + GetInt(s, n + 1) 
@@ -176,6 +181,7 @@ function method ParseInt(s: string, i: int) : int
     decreases i
     requires 0 <= i < |s|
     requires forall j :: 0 <= j <= i ==> '0' <= s[j] <= '9' 
+    ensures ParseInt(s, i) >= 0
 {
     if i == 0 then (s[i] - '0') as int else ((s[i]-'0') as int) + 10 * ParseInt(s, i - 1)
 }
@@ -227,10 +233,11 @@ class {:autocontracts} Compression {
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
         //ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
     {
-        if index >= |s| && occ <= 3 then
-            RepeatChar(cur_char, occ)
-        else if index >= |s| && occ >= 4 then
-            ['\\'] + [cur_char] + ToString(occ)
+        if index >= |s| then 
+            if occ <= 3 then
+                RepeatChar(cur_char, occ)
+            else
+                ['\\'] + [cur_char] + ToString(occ)
         else if s[index] == cur_char then
             helpCompress(s, cur_char, occ + 1, index + 1)
         else if occ <= 3 then
@@ -242,51 +249,54 @@ class {:autocontracts} Compression {
     function method compress(s: string) : string 
         requires |s| > 0
         //ensures |s| >= compress(s) 
+        //ensures decompress(compress(s)) == s
     {
         helpCompress(s, s[0], 1, 1)
     }
 
-    method {:verify false} decompress(s: string)  returns (decomp_s: string)
+
+    function method helpDecompress(s: string, fnd_esc: bool, fnd_ch: bool, ch: char, index: int) : string
+        decreases |s| - index 
         requires |s| > 0
-        ensures |s| <= |decomp_s|
+        requires 1 <= index <= |s| 
+        requires fnd_ch ==> s[index-1] == ch && index >= 2
+        requires fnd_esc ==> if fnd_ch then s[index - 2] == '\\' else s[index - 1] == '\\'
     {
-        decomp_s := "";
-
-        var i := 0; // iterates through the string
-
-        while i < |s| 
-            decreases |s| - i 
-            invariant 0 <= i <= |s|
-        {
-            if(s[i] == '\\') {
-                i := i + 1;
-                if(i < |s| && IsAlphaChar(s[i])) {
-                    i := i + 1;
-                    var integerString := GetInt(s, i);
-                    if(|integerString| > 0) {
-                        var integer := ParseInt(integerString, |integerString| - 1);
-                        print integer;
-                        var j := 0;
-                        while j < integer
-                            decreases integer - j
-                            invariant 0 <= j <= integer 
-                        {
-                            decomp_s := decomp_s + [s[i-1]];
-                            j := j + 1;
-                        }
-                        i := i + 1;
-                    } else {
-                        decomp_s := decomp_s + ['\\'] + [s[i-1]];
-                    }
-                } else {
-                    decomp_s := decomp_s + ['\\'];
-                }
-            } else {
-                decomp_s := decomp_s + [s[i]];
-                i := i + 1;
-            }
-        }
+        if index >= |s| then 
+            if fnd_esc then 
+                if fnd_ch then
+                    ['\\'] + [ch]  
+                else 
+                    ['\\']
+            else
+                "" 
+        else 
+            if fnd_esc then 
+                if fnd_ch then 
+                var integer := GetInt(s, index);
+                    if(|integer| > 0) then 
+                        var occ := ParseInt(integer, |integer| - 1);
+                        RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + 1)
+                    else 
+                        ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
+                else 
+                    if IsAlphaChar(s[index]) then 
+                        helpDecompress(s, true, true, s[index], index + 1)
+                    else 
+                        ['\\'] + [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
+            else 
+                if s[index] == '\\' then 
+                    helpDecompress(s, true, false, '\0', index + 1) 
+                else 
+                    [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
     }
 
- 
+    
+    function method decompress(s: string) : string 
+        requires |s| > 0
+        //ensures |s| >= compress(s) 
+        //ensures compress(decompress(s)) == s
+    {
+        helpDecompress(s, s[0] == '\\', false, '\0', 1)
+    } 
 }
