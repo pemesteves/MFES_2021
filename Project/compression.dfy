@@ -123,6 +123,10 @@ method {:main} Main(ghost env:HostEnvironment)
     }
 
     ok := copy(env, src, src_stream, dst_stream);
+
+    var c := new Compression();
+    var s := c.compress("AAAABBBBCCCC");
+    print s;
 }
 
 
@@ -219,12 +223,14 @@ class {:autocontracts} Compression {
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
         decreases |s| - index 
         requires |s| > 0
-        requires 0 <= index <= |s| && 0 < occ <= index
+        requires 1 <= index <= |s| && 0 < occ <= index
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
         //ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
     {
-        if index >= |s| then
+        if index >= |s| && occ <= 3 then
             RepeatChar(cur_char, occ)
+        else if index >= |s| && occ >= 4 then
+            ['\\'] + [cur_char] + ToString(occ)
         else if s[index] == cur_char then
             helpCompress(s, cur_char, occ + 1, index + 1)
         else if occ <= 3 then
@@ -233,37 +239,11 @@ class {:autocontracts} Compression {
             ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)
     }
 
-    method {:verify false} compress(s: string) returns (comp_s: string)
+    function method compress(s: string) : string 
         requires |s| > 0
-        ensures |s| >= |comp_s|
+        //ensures |s| >= compress(s) 
     {
-        comp_s := "";
-        var cnt_occur : int := 1;
-        var cur_char : char := s[0];
-
-        var i := 1; // iterates through the string
-        
-        while i < |s|
-            decreases |s| - i
-            invariant 1 <= i <= |s|
-            invariant cur_char in s 
-            invariant 1 <= cnt_occur <= |s|
-        {
-            if s[i] == cur_char {
-                cnt_occur := cnt_occur + 1;
-            } else {
-                var tmp_s := getStringPortionCMP(cur_char, cnt_occur);
-                comp_s := comp_s + tmp_s;
-
-                cur_char := s[i];
-                cnt_occur := 1;
-            }
-
-            i := i + 1;
-        }
-
-        var tmp_s := getStringPortionCMP(cur_char, cnt_occur);
-        comp_s := comp_s + tmp_s;
+        helpCompress(s, s[0], 1, 1)
     }
 
     method {:verify false} decompress(s: string)  returns (decomp_s: string)
