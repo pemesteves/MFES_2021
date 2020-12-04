@@ -75,8 +75,6 @@ method {:main} Main(ghost env:HostEnvironment)
 						==> env.files != null &&
             env.files.state() == old_files[args[3] := old_files[args[2]]]);
 {
-    print "Starting Main";
-
     var num_args := HostConstants.NumCommandLineArgs(env);
     if num_args != 4 {
         print "Expected usage: compression.exe [0|1] [src] [dst]\n";
@@ -125,7 +123,6 @@ method {:main} Main(ghost env:HostEnvironment)
     }
 
     ok := copy(env, src, src_stream, dst_stream);
-
 }
 
 
@@ -146,9 +143,10 @@ method Main()
 //type T = int // for demo purposes, but could be another type
 
 function method ToString(n: int) : string 
+    decreases n
     requires n >= 0
 {   
-    if n == 0 then "" else ToString(n / 10) + [(n % 10) as char]
+    if n == 0 then "" else ToString(n / 10) + [(n % 10) as char + '0']
 }
 
 function method IsInt(c: char) : bool 
@@ -173,14 +171,15 @@ function method GetInt(s: string, n: int) : string
 function method ParseInt(s: string, i: int) : int
     decreases i
     requires 0 <= i < |s|
+    requires forall j :: 0 <= j <= i ==> '0' <= s[j] <= '9' 
 {
-    if i == 0 then s[i] as int else (s[i] as int) + 10 * ParseInt(s, i - 1)
+    if i == 0 then (s[i] - '0') as int else ((s[i]-'0') as int) + 10 * ParseInt(s, i - 1)
 }
 
 function method RepeatChar(c: char, occ: int) : string
     decreases occ
     requires occ >= 0
-    ensures |RepeatChar(c, occ)| == occ && forall i :: 0 <= i < occ ==> RepeatChar(c, occ)[i] == c;
+    ensures |RepeatChar(c, occ)| == occ && forall i :: 0 <= i < occ ==> RepeatChar(c, occ)[i] == c
 {
     if occ == 0 then "" else [c] + RepeatChar(c, occ - 1)
 }
@@ -202,7 +201,7 @@ class {:autocontracts} Compression {
         s := "";
 
         if occ > 3 {
-            var tmp_s :=  ToString(occ);
+            var tmp_s := ToString(occ);
             s := ['\\'] + [c] + tmp_s;
         } else {
             var j := 0;
@@ -287,6 +286,7 @@ class {:autocontracts} Compression {
                     var integerString := GetInt(s, i);
                     if(|integerString| > 0) {
                         var integer := ParseInt(integerString, |integerString| - 1);
+                        print integer;
                         var j := 0;
                         while j < integer
                             decreases integer - j
@@ -295,7 +295,7 @@ class {:autocontracts} Compression {
                             decomp_s := decomp_s + [s[i-1]];
                             j := j + 1;
                         }
-                        
+                        i := i + 1;
                     } else {
                         decomp_s := decomp_s + ['\\'] + [s[i-1]];
                     }
