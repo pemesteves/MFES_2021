@@ -203,29 +203,6 @@ class {:autocontracts} Compression {
     constructor () 
     {}
  
-    method getStringPortionCMP(c: char, occ: int) returns (s: string) 
-        requires occ > 0
-        ensures occ > 3 ==> |s| == 2 + |ToString(occ)|
-        ensures occ <= 3 ==> |s| == occ
-    {
-        s := "";
-
-        if occ > 3 {
-            var tmp_s := ToString(occ);
-            s := ['\\'] + [c] + tmp_s;
-        } else {
-            var j := 0;
-            while j < occ 
-                decreases occ - j
-                invariant 0 <= j <= occ
-                invariant |s| == j
-            {
-                s := s + [c];
-                j := j + 1;
-            }
-        }
-    }
-
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
         decreases |s| - index 
         requires |s| > 0
@@ -250,7 +227,7 @@ class {:autocontracts} Compression {
     function method compress(s: string) : string 
         requires |s| > 0
         ensures 0 < |compress(s)| 
-        // ensures decompress(compress(s)) == s
+        //ensures decompress(compress(s)) == s
     {
         helpCompress(s, s[0], 1, 1)
     }
@@ -276,9 +253,12 @@ class {:autocontracts} Compression {
             if fnd_esc then 
                 if fnd_ch then 
                 var integer := GetInt(s, index);
-                    if(|integer| > 0) then 
+                    if |integer| > 0 then 
                         var occ := ParseInt(integer, |integer| - 1);
-                        RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + 1)
+                        if occ > 3 then // If the number is 3 or less, the char won't be repeated
+                            RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + 1)
+                        else 
+                            ['\\'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
                     else 
                         ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
                 else 
