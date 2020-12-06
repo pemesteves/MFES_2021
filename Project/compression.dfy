@@ -96,7 +96,14 @@ method copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst
 
     var cmp_buffer := GetByteArrayFromString(cmp_str);
 
-    ok := dst.Write(0, cmp_buffer, 0, src_len);
+    if cmp_buffer == null {
+        print "Source file ", src, " is empty", "\n";
+        return false;
+    }
+
+    var cmp_buff_leng : int32 := cmp_buffer.Length as int32;
+
+    ok := dst.Write(0, cmp_buffer, 0, cmp_buff_leng);
     if !ok {
         print "Failed to write the dst file: ", dst, "\n";
         return false;
@@ -205,12 +212,22 @@ method Main()
 
 //type T = int // for demo purposes, but could be another type
 
+function method NumDigits(n: int) : int 
+    decreases n
+    requires n >= 0
+{
+    if n <= 9 then 1 else 1 + NumDigits(n / 10)
+}
+
 function method ToString(n: int) : string 
     decreases n
     requires n >= 0
-    ensures forall c :: c in ToString(n) ==> '0' <= c <= '9' && 0 <= c as int < 256
+    ensures 
+        var s := ToString(n);
+        |s| == NumDigits(n) && forall i :: 0 <= i < |s| ==> '0' <= s[i] <= '9' && 0 <= s[i] as int < 256
 {   
-    if n == 0 then "" else ToString(n / 10) + [(n % 10) as char + '0']
+    if n <= 9 then [n as char + '0']
+    else ToString(n / 10) + [(n % 10) as char + '0']
 }
 
 function method IsInt(c: char) : bool 
@@ -267,28 +284,31 @@ class {:autocontracts} Compression {
  
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
         decreases |s| - index 
-        requires |s| > 0
+        requires 1 <= occ <= |s|
         requires 1 <= index <= |s| && 0 < occ <= index
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         requires 0 <= cur_char as int < 256
-        ensures 0 < |helpCompress(s, cur_char, occ, index)|
+        ensures 0 < |helpCompress(s, cur_char, occ, index)| //<= |s|
         ensures 
             var cmp := helpCompress(s, cur_char, occ, index);
-            forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256
-        //ensures |helpCompress(s, cur_char, occ, index)| <= |s| 
+            (forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256)
+            /*&&
+            (occ > 3 ==> |s| >= 2 + |ToString(occ)|)
+            &&
+            (index >= |s| ==> (occ <= 3 ==> |cmp| == occ) && (occ > 3 ==> |cmp| == 2 + |ToString(occ)|))*/
     {
         if index >= |s| then 
             if occ <= 3 then
                 RepeatChar(cur_char, occ)
             else
                 ['\\'] + [cur_char] + ToString(occ)
-        else ""/*if s[index] == cur_char then
+        else if s[index] == cur_char then
             helpCompress(s, cur_char, occ + 1, index + 1)
         else if occ <= 3 then
             RepeatChar(cur_char, occ) + helpCompress(s, s[index], 1, index + 1)
         else
-            ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)*/
+            ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)
     }
 
     function method compress(s: string) : string 
