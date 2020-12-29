@@ -250,13 +250,15 @@ function method IsAlphaChar(c: char) : bool
 
 function method GetInt(s: string, n: int) : string
     decreases |s| - n
-    requires n >= 0 
+    requires 0 <= n <= |s| 
     requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
     ensures 
         var integerString := GetInt(s, n);
-        |integerString| != 0 ==> forall i :: 0 <= i < |integerString| ==> '0' <= integerString[i] <= '9' && 0 <= integerString[i] as int < 256
+        (|integerString| != 0 ==> forall i :: 0 <= i < |integerString| ==> '0' <= integerString[i] <= '9' && 0 <= integerString[i] as int < 256)
+        &&
+        (|s| >= n + |integerString|)
 {
-    if n >= |s| then "" else 
+    if n == |s| then "" else 
     if IsInt(s[n]) then [s[n]] + GetInt(s, n + 1) 
     else "" 
 }
@@ -367,9 +369,9 @@ class Compression {
                     if |integer| > 0 then 
                         var occ := ParseInt(integer, |integer| - 1);
                         if occ > 3 then // If the number is 3 or less, the char won't be repeated
-                            RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + 1)
+                            RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer|)
                         else 
-                            ['\\'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
+                            ['\\'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
                     else 
                         ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
                 else 
