@@ -53,7 +53,7 @@ method GetByteArrayFromString(s: string) returns (b: array?<byte>)
 }
 
 // Useful to convert Dafny strings into arrays of characters.
-method copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream) returns (success:bool)
+method {:verify false} copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream) returns (success:bool)
     requires env.Valid() && env.ok.ok();
 		requires src_name[..] == src.Name();
 		requires src.Name() in env.files.state() && dst.Name() in env.files.state();
@@ -190,8 +190,8 @@ method {:main} Main(ghost env:HostEnvironment)
     ok := copy(env, src, src_stream, dst_stream);
 
     var c := new Compression();
-    //var s := c.compress("AAAABBBBCCCC");
-    var s := c.decompress("\\A4\\B5");
+    var s := c.compress("AAAABBBBCCCC");
+    //var s := c.decompress("\\A4\\B5");
     print s;
 }
 
@@ -273,15 +273,28 @@ function method RepeatChar(c: char, occ: int) : string
     if occ == 0 then "" else [c] + RepeatChar(c, occ - 1)
 }
 
-class {:autocontracts} Compression {
-
-    /*predicate Valid()
-    {}*/
-    
+class Compression {
  
     constructor () 
     {}
  
+    function method repeatOccurences(cur_char: char, occ: int) : string
+        requires occ > 0
+        requires 0 <= cur_char as int < 256
+        ensures 
+            var s := repeatOccurences(cur_char, occ);
+            (occ <= 3 ==> |s| == occ) 
+            &&
+            (occ > 3 ==> |s| == 2 + |ToString(occ)|)
+            &&
+            forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
+    {
+        if occ <= 3 then
+            RepeatChar(cur_char, occ)
+        else 
+            ['\\'] + [cur_char] + ToString(occ)
+    }
+
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
         decreases |s| - index 
         requires 1 <= occ <= |s|
@@ -294,21 +307,16 @@ class {:autocontracts} Compression {
             var cmp := helpCompress(s, cur_char, occ, index);
             (forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256)
             /*&&
-            (occ > 3 ==> |s| >= 2 + |ToString(occ)|)
+            (occ > 3 ==> |s| >= 2 + |ToString(occ)|)*/
             &&
-            (index >= |s| ==> (occ <= 3 ==> |cmp| == occ) && (occ > 3 ==> |cmp| == 2 + |ToString(occ)|))*/
+            (index >= |s| ==> (occ <= 3 ==> |cmp| == occ) && (occ > 3 ==> |cmp| == 2 + |ToString(occ)|))
     {
         if index >= |s| then 
-            if occ <= 3 then
-                RepeatChar(cur_char, occ)
-            else
-                ['\\'] + [cur_char] + ToString(occ)
+            repeatOccurences(cur_char, occ)
         else if s[index] == cur_char then
             helpCompress(s, cur_char, occ + 1, index + 1)
-        else if occ <= 3 then
-            RepeatChar(cur_char, occ) + helpCompress(s, s[index], 1, index + 1)
-        else
-            ['\\'] + [cur_char] + ToString(occ) + helpCompress(s, s[index], 1, index + 1)
+        else 
+            repeatOccurences(cur_char, occ) + helpCompress(s, s[index], 1, index + 1)
     }
 
     function method compress(s: string) : string 
