@@ -30,10 +30,10 @@ method GetStringFromByteArray(b: array?<byte>) returns (s: string)
 }
 
 method GetByteArrayFromString(s: string) returns (b: array?<byte>) 
-    requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256 
+    requires forall i :: 0 <= i < |s| ==> 0 as char <= s[i] < 256 as char 
     ensures |s| == 0 ==> b == null
     ensures |s| > 0 ==> b != null && b.Length == |s|
-    ensures forall i :: 0 <= i < |s| ==> b[i] == s[i] as byte
+    ensures forall i :: 0 <= i < |s| ==> b[i] as char == s[i]
 {
     if |s| == 0 {
         return null;
@@ -45,9 +45,9 @@ method GetByteArrayFromString(s: string) returns (b: array?<byte>)
     while i < |s|
         decreases |s| - i
         invariant 0 <= i <= |s| 
-        invariant forall j :: 0 <= j < i ==> b[j] == s[j] as byte
+        invariant forall j :: 0 <= j < i ==> b[j] as char == s[j]
     {
-        b[i] := s[i] as byte;
+        b[i] := (s[i] as int) as byte;
         i := i + 1;
     }
 }
