@@ -365,7 +365,7 @@ class Compression {
         else 
             if fnd_esc then 
                 if fnd_ch then 
-                var integer := GetInt(s, index);
+                    var integer := GetInt(s, index);
                     if |integer| > 0 then 
                         var occ := ParseInt(integer, |integer| - 1);
                         if occ > 3 then // If the number is 3 or less, the char won't be repeated
@@ -375,10 +375,7 @@ class Compression {
                     else 
                         ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
                 else 
-                    if IsAlphaChar(s[index]) then 
-                        helpDecompress(s, true, true, s[index], index + 1)
-                    else 
-                        ['\\'] + [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
+                    helpDecompress(s, true, true, s[index], index + 1)
             else 
                 if s[index] == '\\' then 
                     helpDecompress(s, true, false, '\0', index + 1) 
