@@ -155,7 +155,7 @@ method GetByteArrayFromString(s: string) returns (b: array?<byte>)
   }
 }
 
-method {:verify false} copy(ghost env: HostEnvironment, src_name: array<char>, src: FileStream, dst: FileStream)
+method {:verify false} copy(ghost env: HostEnvironment, src_name: array<char>, src: FileStream, dst: FileStream, isCompression: bool)
     returns (success: bool)
   requires env.Valid() && env.ok.ok()
   requires src_name[..] == src.Name()
@@ -167,7 +167,7 @@ method {:verify false} copy(ghost env: HostEnvironment, src_name: array<char>, s
   requires src != dst
   requires env.files.state()[dst.Name()] == []
   modifies env, env.files, env.ok, src, dst, src.env, src.env.ok, src.env.files
-  decreases env, src_name, src, dst
+  decreases env, src_name, src, dst, isCompression
 {
   var ok, src_len := FileStream.FileLength(src_name, env);
   if !ok {
@@ -183,11 +183,15 @@ method {:verify false} copy(ghost env: HostEnvironment, src_name: array<char>, s
   assert buffer[..] == old(env.files.state()[src_name[..]]);
   var cmp := new Compression();
   var buffer_string := GetStringFromByteArray(buffer);
-  var cmp_str := """";
+  var str := """";
   if |buffer_string| > 0 {
-    cmp_str := cmp.compress(buffer_string);
+    if isCompression {
+      str := cmp.compress(buffer_string);
+    } else {
+      str := cmp.decompress(buffer_string);
+    }
   }
-  var cmp_buffer := GetByteArrayFromString(cmp_str);
+  var cmp_buffer := GetByteArrayFromString(str);
   if cmp_buffer == null {
     print ""Source file "", src, "" is empty"", ""\n"";
     return false;
@@ -255,10 +259,14 @@ method {:main} Main(ghost env: HostEnvironment)
     print ""Failed to open dst file: "", dst, ""\n"";
     return;
   }
-  ok := copy(env, src, src_stream, dst_stream);
+  ok := copy(env, src, src_stream, dst_stream, isCompression);
   var c := new Compression();
-  var s := c.compress(""AAAABBBBCCCC"");
-  print s;
+  var s := ""AAAABBBBCCCC"";
+  print s + ""\n"";
+  s := c.compress(s);
+  print s + ""\n"";
+  s := c.decompress(s);
+  print s + ""\n"";
 }
 
 function method NumDigits(n: int): int
@@ -2050,11 +2058,11 @@ namespace @__default {
       } else {
         if (@fnd__esc) {
           if (@fnd__ch) {
-            Dafny.Sequence<char> @_393_integer = @__default.@GetInt(@s, @index);
-            if ((new BigInteger((@_393_integer).Length)) > (new BigInteger(0))) {
-              BigInteger @_394_occ = @__default.@ParseInt(@_393_integer, (new BigInteger((@_393_integer).Length)) - (new BigInteger(1)));
-              if ((@_394_occ) > (new BigInteger(3))) {
-                return (@__default.@RepeatChar(@ch, @_394_occ)).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
+            Dafny.Sequence<char> @_399_integer = @__default.@GetInt(@s, @index);
+            if ((new BigInteger((@_399_integer).Length)) > (new BigInteger(0))) {
+              BigInteger @_400_occ = @__default.@ParseInt(@_399_integer, (new BigInteger((@_399_integer).Length)) - (new BigInteger(1)));
+              if ((@_400_occ) > (new BigInteger(3))) {
+                return (@__default.@RepeatChar(@ch, @_400_occ)).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
               } else {
                 return (((Dafny.Sequence<char>.FromElements('\\')).@Concat(Dafny.Sequence<char>.FromElements(@ch))).@Concat(Dafny.Sequence<char>.FromElements((@s).Select(@index)))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
               }
@@ -2088,7 +2096,7 @@ namespace @__default {
       @a = new @A[0];
     TAIL_CALL_START: ;
       var _nw0 = new @A[(int)(new BigInteger((@s).Length))];
-      var _arrayinit0 = Dafny.Helpers.Id<@Func<Dafny.Sequence<@A>,@Func<BigInteger,@A>>>((@_395_s) => (@_396_i) => (@_395_s).Select(@_396_i))(@s);
+      var _arrayinit0 = Dafny.Helpers.Id<@Func<Dafny.Sequence<@A>,@Func<BigInteger,@A>>>((@_401_s) => (@_402_i) => (@_401_s).Select(@_402_i))(@s);
       for (int _arrayinit_00 = 0; _arrayinit_00 < _nw0.Length; _arrayinit_00++) {
         _nw0[_arrayinit_00] = _arrayinit0(_arrayinit_00);
       }
@@ -2106,15 +2114,15 @@ namespace @__default {
       }
       Dafny.Sequence<char> _rhs1 = Dafny.Sequence<char>.FromString("");
       @s = _rhs1;
-      BigInteger @_397_i = BigInteger.Zero;
+      BigInteger @_403_i = BigInteger.Zero;
       BigInteger _rhs2 = new BigInteger(0);
-      @_397_i = _rhs2;
-      while ((@_397_i) < (new BigInteger((@b).@Length)))
+      @_403_i = _rhs2;
+      while ((@_403_i) < (new BigInteger((@b).@Length)))
       {
-        Dafny.Sequence<char> _rhs3 = (@s).@Concat(Dafny.Sequence<char>.FromElements((char)((@b)[(int)(@_397_i)])));
+        Dafny.Sequence<char> _rhs3 = (@s).@Concat(Dafny.Sequence<char>.FromElements((char)((@b)[(int)(@_403_i)])));
         @s = _rhs3;
-        BigInteger _rhs4 = (@_397_i) + (new BigInteger(1));
-        @_397_i = _rhs4;
+        BigInteger _rhs4 = (@_403_i) + (new BigInteger(1));
+        @_403_i = _rhs4;
       }
     }
     public static void @GetByteArrayFromString(Dafny.Sequence<char> @s, out byte[] @b)
@@ -2129,31 +2137,31 @@ namespace @__default {
       }
       var _nw1 = new byte[(int)(new BigInteger((@s).Length))];
       @b = _nw1;
-      BigInteger @_398_i = BigInteger.Zero;
+      BigInteger @_404_i = BigInteger.Zero;
       BigInteger _rhs6 = new BigInteger(0);
-      @_398_i = _rhs6;
-      while ((@_398_i) < (new BigInteger((@s).Length)))
+      @_404_i = _rhs6;
+      while ((@_404_i) < (new BigInteger((@s).Length)))
       {
         var _arr0 = @b;
-        var _index0 = @_398_i;
-        byte _rhs7 = (byte)((@s).Select(@_398_i));
+        var _index0 = @_404_i;
+        byte _rhs7 = (byte)((@s).Select(@_404_i));
         _arr0[(int)_index0] = _rhs7;
-        BigInteger _rhs8 = (@_398_i) + (new BigInteger(1));
-        @_398_i = _rhs8;
+        BigInteger _rhs8 = (@_404_i) + (new BigInteger(1));
+        @_404_i = _rhs8;
       }
     }
-    public static void @copy(char[] @src__name, @FileStream @src, @FileStream @dst, out bool @success)
+    public static void @copy(char[] @src__name, @FileStream @src, @FileStream @dst, bool @isCompression, out bool @success)
     {
       @success = false;
     TAIL_CALL_START: ;
-      bool @_399_ok = false;
-      int @_400_src__len = 0;
+      bool @_405_ok = false;
+      int @_406_src__len = 0;
       bool _out0;
       int _out1;
       @FileStream.@FileLength(@src__name, out _out0, out _out1);
-      @_399_ok = _out0;
-      @_400_src__len = _out1;
-      if (!(@_399_ok))
+      @_405_ok = _out0;
+      @_406_src__len = _out1;
+      if (!(@_405_ok))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Failed to find the length of src file: "));
         System.Console.Write(@src);
@@ -2162,13 +2170,13 @@ namespace @__default {
         @success = _rhs9;
         return;
       }
-      byte[] @_401_buffer = (byte[])null;
-      var _nw2 = new byte[(int)(@_400_src__len)];
-      @_401_buffer = _nw2;
+      byte[] @_407_buffer = (byte[])null;
+      var _nw2 = new byte[(int)(@_406_src__len)];
+      @_407_buffer = _nw2;
       bool _out2;
-      (@src).@Read(0, @_401_buffer, 0, @_400_src__len, out _out2);
-      @_399_ok = _out2;
-      if (!(@_399_ok))
+      (@src).@Read(0, @_407_buffer, 0, @_406_src__len, out _out2);
+      @_405_ok = _out2;
+      if (!(@_405_ok))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Failed to read the src file: "));
         System.Console.Write(@src);
@@ -2178,181 +2186,195 @@ namespace @__default {
         return;
       }
       { }
-      @Compression @_402_cmp = default(@Compression);
+      @Compression @_408_cmp = default(@Compression);
       var _nw3 = new @Compression();
       @_nw3.@__ctor();
-      @_402_cmp = _nw3;
-      Dafny.Sequence<char> @_403_buffer__string = Dafny.Sequence<char>.Empty;
+      @_408_cmp = _nw3;
+      Dafny.Sequence<char> @_409_buffer__string = Dafny.Sequence<char>.Empty;
       Dafny.Sequence<char> _out3;
-      @__default.@GetStringFromByteArray(@_401_buffer, out _out3);
-      @_403_buffer__string = _out3;
-      Dafny.Sequence<char> @_404_cmp__str = Dafny.Sequence<char>.Empty;
+      @__default.@GetStringFromByteArray(@_407_buffer, out _out3);
+      @_409_buffer__string = _out3;
+      Dafny.Sequence<char> @_410_str = Dafny.Sequence<char>.Empty;
       Dafny.Sequence<char> _rhs11 = Dafny.Sequence<char>.FromString("");
-      @_404_cmp__str = _rhs11;
-      if ((new BigInteger((@_403_buffer__string).Length)) > (new BigInteger(0)))
+      @_410_str = _rhs11;
+      if ((new BigInteger((@_409_buffer__string).Length)) > (new BigInteger(0)))
       {
-        Dafny.Sequence<char> _rhs12 = (@_402_cmp).@compress(@_403_buffer__string);
-        @_404_cmp__str = _rhs12;
+        if (@isCompression)
+        {
+          Dafny.Sequence<char> _rhs12 = (@_408_cmp).@compress(@_409_buffer__string);
+          @_410_str = _rhs12;
+        }
+        else
+        {
+          Dafny.Sequence<char> _rhs13 = (@_408_cmp).@decompress(@_409_buffer__string);
+          @_410_str = _rhs13;
+        }
       }
-      byte[] @_405_cmp__buffer = (byte[])null;
+      byte[] @_411_cmp__buffer = (byte[])null;
       byte[] _out4;
-      @__default.@GetByteArrayFromString(@_404_cmp__str, out _out4);
-      @_405_cmp__buffer = _out4;
-      if ((@_405_cmp__buffer) == (object) ((byte[])null))
+      @__default.@GetByteArrayFromString(@_410_str, out _out4);
+      @_411_cmp__buffer = _out4;
+      if ((@_411_cmp__buffer) == (object) ((byte[])null))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Source file "));
         System.Console.Write(@src);
         System.Console.Write(Dafny.Sequence<char>.FromString(" is empty"));
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
-        bool _rhs13 = false;
-        @success = _rhs13;
+        bool _rhs14 = false;
+        @success = _rhs14;
         return;
       }
-      int @_406_cmp__buff__leng = 0;
-      int _rhs14 = (int)(@_405_cmp__buffer).Length;
-      @_406_cmp__buff__leng = _rhs14;
+      int @_412_cmp__buff__leng = 0;
+      int _rhs15 = (int)(@_411_cmp__buffer).Length;
+      @_412_cmp__buff__leng = _rhs15;
       bool _out5;
-      (@dst).@Write(0, @_405_cmp__buffer, 0, @_406_cmp__buff__leng, out _out5);
-      @_399_ok = _out5;
-      if (!(@_399_ok))
+      (@dst).@Write(0, @_411_cmp__buffer, 0, @_412_cmp__buff__leng, out _out5);
+      @_405_ok = _out5;
+      if (!(@_405_ok))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Failed to write the dst file: "));
         System.Console.Write(@dst);
-        System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
-        bool _rhs15 = false;
-        @success = _rhs15;
-        return;
-      }
-      { }
-      bool _out6;
-      (@src).@Close(out _out6);
-      @_399_ok = _out6;
-      if (!(@_399_ok))
-      {
-        System.Console.Write(Dafny.Sequence<char>.FromString("Failed to close the src file: "));
-        System.Console.Write(@src);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         bool _rhs16 = false;
         @success = _rhs16;
         return;
       }
-      bool _out7;
-      (@dst).@Close(out _out7);
-      @_399_ok = _out7;
-      if (!(@_399_ok))
+      { }
+      bool _out6;
+      (@src).@Close(out _out6);
+      @_405_ok = _out6;
+      if (!(@_405_ok))
       {
-        System.Console.Write(Dafny.Sequence<char>.FromString("Failed to close the dst file: "));
-        System.Console.Write(@dst);
+        System.Console.Write(Dafny.Sequence<char>.FromString("Failed to close the src file: "));
+        System.Console.Write(@src);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         bool _rhs17 = false;
         @success = _rhs17;
         return;
       }
-      bool _rhs18 = true;
-      @success = _rhs18;
+      bool _out7;
+      (@dst).@Close(out _out7);
+      @_405_ok = _out7;
+      if (!(@_405_ok))
+      {
+        System.Console.Write(Dafny.Sequence<char>.FromString("Failed to close the dst file: "));
+        System.Console.Write(@dst);
+        System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
+        bool _rhs18 = false;
+        @success = _rhs18;
+        return;
+      }
+      bool _rhs19 = true;
+      @success = _rhs19;
       return;
     }
     public static void @Main()
     {
     TAIL_CALL_START: ;
-      uint @_407_num__args = 0;
+      uint @_413_num__args = 0;
       uint _out8;
       @HostConstants.@NumCommandLineArgs(out _out8);
-      @_407_num__args = _out8;
-      if ((@_407_num__args) != (4U))
+      @_413_num__args = _out8;
+      if ((@_413_num__args) != (4U))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Expected usage: compression.exe [0|1] [src] [dst]\n"));
         return;
       }
-      char[] @_408_compression = (char[])null;
+      char[] @_414_compression = (char[])null;
       char[] _out9;
       @HostConstants.@GetCommandLineArg(1UL, out _out9);
-      @_408_compression = _out9;
-      if ((new BigInteger((@_408_compression).@Length)) != (new BigInteger(1)))
+      @_414_compression = _out9;
+      if ((new BigInteger((@_414_compression).@Length)) != (new BigInteger(1)))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("The first argument should be 1 for compression or 0 for decompression, but instead got: "));
-        System.Console.Write(@_408_compression);
+        System.Console.Write(@_414_compression);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      if (!((((@_408_compression)[(int)(new BigInteger(0))]) == ('0')) || (((@_408_compression)[(int)(new BigInteger(0))]) == ('1'))))
+      if (!((((@_414_compression)[(int)(new BigInteger(0))]) == ('0')) || (((@_414_compression)[(int)(new BigInteger(0))]) == ('1'))))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("The first argument should be 1 for compression or 0 for decompression, but instead got: "));
-        System.Console.Write(@_408_compression);
+        System.Console.Write(@_414_compression);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      bool @_409_isCompression = false;
-      bool _rhs19 = (((@_408_compression)[(int)(new BigInteger(0))]) == ('0')) ? (false) : (true);
-      @_409_isCompression = _rhs19;
-      char[] @_410_src = new char[0];
+      bool @_415_isCompression = false;
+      bool _rhs20 = (((@_414_compression)[(int)(new BigInteger(0))]) == ('0')) ? (false) : (true);
+      @_415_isCompression = _rhs20;
+      char[] @_416_src = new char[0];
       char[] _out10;
       @HostConstants.@GetCommandLineArg(2UL, out _out10);
-      @_410_src = _out10;
-      char[] @_411_dst = new char[0];
+      @_416_src = _out10;
+      char[] @_417_dst = new char[0];
       char[] _out11;
       @HostConstants.@GetCommandLineArg(3UL, out _out11);
-      @_411_dst = _out11;
-      bool @_412_src__exists = false;
+      @_417_dst = _out11;
+      bool @_418_src__exists = false;
       bool _out12;
-      @FileStream.@FileExists(@_410_src, out _out12);
-      @_412_src__exists = _out12;
-      if (!(@_412_src__exists))
+      @FileStream.@FileExists(@_416_src, out _out12);
+      @_418_src__exists = _out12;
+      if (!(@_418_src__exists))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Couldn't find src file: "));
-        System.Console.Write(@_410_src);
+        System.Console.Write(@_416_src);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      bool @_413_dst__exists = false;
+      bool @_419_dst__exists = false;
       bool _out13;
-      @FileStream.@FileExists(@_411_dst, out _out13);
-      @_413_dst__exists = _out13;
-      if (@_413_dst__exists)
+      @FileStream.@FileExists(@_417_dst, out _out13);
+      @_419_dst__exists = _out13;
+      if (@_419_dst__exists)
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("The dst file: "));
-        System.Console.Write(@_411_dst);
+        System.Console.Write(@_417_dst);
         System.Console.Write(Dafny.Sequence<char>.FromString(" already exists.  I don't dare hurt it.\n"));
         return;
       }
-      bool @_414_ok = false;
-      @FileStream @_415_src__stream = default(@FileStream);
+      bool @_420_ok = false;
+      @FileStream @_421_src__stream = default(@FileStream);
       bool _out14;
       @FileStream _out15;
-      @FileStream.@Open(@_410_src, out _out14, out _out15);
-      @_414_ok = _out14;
-      @_415_src__stream = _out15;
-      if (!(@_414_ok))
+      @FileStream.@Open(@_416_src, out _out14, out _out15);
+      @_420_ok = _out14;
+      @_421_src__stream = _out15;
+      if (!(@_420_ok))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Failed to open src file: "));
-        System.Console.Write(@_410_src);
+        System.Console.Write(@_416_src);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      @FileStream @_416_dst__stream = default(@FileStream);
+      @FileStream @_422_dst__stream = default(@FileStream);
       bool _out16;
       @FileStream _out17;
-      @FileStream.@Open(@_411_dst, out _out16, out _out17);
-      @_414_ok = _out16;
-      @_416_dst__stream = _out17;
-      if (!(@_414_ok))
+      @FileStream.@Open(@_417_dst, out _out16, out _out17);
+      @_420_ok = _out16;
+      @_422_dst__stream = _out17;
+      if (!(@_420_ok))
       {
         System.Console.Write(Dafny.Sequence<char>.FromString("Failed to open dst file: "));
-        System.Console.Write(@_411_dst);
+        System.Console.Write(@_417_dst);
         System.Console.Write(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
       bool _out18;
-      @__default.@copy(@_410_src, @_415_src__stream, @_416_dst__stream, out _out18);
-      @_414_ok = _out18;
-      @Compression @_417_c = default(@Compression);
+      @__default.@copy(@_416_src, @_421_src__stream, @_422_dst__stream, @_415_isCompression, out _out18);
+      @_420_ok = _out18;
+      @Compression @_423_c = default(@Compression);
       var _nw4 = new @Compression();
       @_nw4.@__ctor();
-      @_417_c = _nw4;
-      Dafny.Sequence<char> @_418_s = Dafny.Sequence<char>.Empty;
-      Dafny.Sequence<char> _rhs20 = (@_417_c).@compress(Dafny.Sequence<char>.FromString("AAAABBBBCCCC"));
-      @_418_s = _rhs20;
-      System.Console.Write(@_418_s);
+      @_423_c = _nw4;
+      Dafny.Sequence<char> @_424_s = Dafny.Sequence<char>.Empty;
+      Dafny.Sequence<char> _rhs21 = Dafny.Sequence<char>.FromString("AAAABBBBCCCC");
+      @_424_s = _rhs21;
+      System.Console.Write((@_424_s).@Concat(Dafny.Sequence<char>.FromString("\n")));
+      Dafny.Sequence<char> _rhs22 = (@_423_c).@compress(@_424_s);
+      @_424_s = _rhs22;
+      System.Console.Write((@_424_s).@Concat(Dafny.Sequence<char>.FromString("\n")));
+      Dafny.Sequence<char> _rhs23 = (@_423_c).@decompress(@_424_s);
+      @_424_s = _rhs23;
+      System.Console.Write((@_424_s).@Concat(Dafny.Sequence<char>.FromString("\n")));
     }
     public static BigInteger @NumDigits(BigInteger @n) {
       if ((@n) <= (new BigInteger(9))) {

@@ -53,7 +53,7 @@ method GetByteArrayFromString(s: string) returns (b: array?<byte>)
 }
 
 // Useful to convert Dafny strings into arrays of characters.
-method {:verify false} copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream) returns (success:bool)
+method {:verify false} copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream, isCompression: bool) returns (success:bool)
     requires env.Valid() && env.ok.ok();
 		requires src_name[..] == src.Name();
 		requires src.Name() in env.files.state() && dst.Name() in env.files.state();
@@ -89,12 +89,17 @@ method {:verify false} copy(ghost env:HostEnvironment, src_name:array<char>, src
     var cmp := new Compression();
     var buffer_string := GetStringFromByteArray(buffer);    
     
-    var cmp_str := "";
-    if(|buffer_string| > 0) {
-        cmp_str := cmp.compress(buffer_string);
+    var str := "";
+    if |buffer_string| > 0 {
+        if isCompression {
+            str := cmp.compress(buffer_string);
+        } 
+        else {
+            str := cmp.decompress(buffer_string);
+        }
     }
 
-    var cmp_buffer := GetByteArrayFromString(cmp_str);
+    var cmp_buffer := GetByteArrayFromString(str);
 
     if cmp_buffer == null {
         print "Source file ", src, " is empty", "\n";
@@ -187,12 +192,15 @@ method {:main} Main(ghost env:HostEnvironment)
         return;
     }
 
-    ok := copy(env, src, src_stream, dst_stream);
+    ok := copy(env, src, src_stream, dst_stream, isCompression);
 
     var c := new Compression();
-    var s := c.compress("AAAABBBBCCCC");
-    //var s := c.decompress("\\A4\\B5");
-    print s;
+    var s := "AAAABBBBCCCC";
+    print s + "\n";
+    s := c.compress(s);
+    print s + "\n";
+    s := c.decompress(s);
+    print s + "\n";
 }
 
 
