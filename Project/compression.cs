@@ -25,7 +25,7 @@ class Compression {
     if occ <= 3 then
       RepeatChar(cur_char, occ)
     else
-      ['\\'] + [cur_char] + ToString(occ)
+      ['\0'] + [cur_char] + ToString(occ)
   }
 
   function method helpCompress(s: string, cur_char: char, occ: int, index: int): string
@@ -60,7 +60,7 @@ class Compression {
     requires |s| > 0
     requires 1 <= index <= |s|
     requires fnd_ch ==> s[index - 1] == ch && index >= 2
-    requires fnd_esc ==> if fnd_ch then s[index - 2] == '\\' else s[index - 1] == '\\'
+    requires fnd_esc ==> if fnd_ch then s[index - 2] == '\0' else s[index - 1] == '\0'
     requires forall i: int :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
     ensures var dcmp: seq<char> := helpDecompress(s, fnd_esc, fnd_ch, ch, index); forall i: int :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
     decreases |s| - index
@@ -68,9 +68,9 @@ class Compression {
     if index >= |s| then
       if fnd_esc then
         if fnd_ch then
-          ['\\'] + [ch]
+          ['\0'] + [ch]
         else
-          ['\\']
+          ['\0']
       else
         """"
     else if fnd_esc then
@@ -81,12 +81,12 @@ class Compression {
           if occ > 3 then
             RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer|)
           else
-            ['\\'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
+            ['\0'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
         else
-          ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
+          ['\0'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
       else
         helpDecompress(s, true, true, s[index], index + 1)
-    else if s[index] == '\\' then
+    else if s[index] == '\0' then
       helpDecompress(s, true, false, '\0', index + 1)
     else
       [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
@@ -98,7 +98,7 @@ class Compression {
     ensures var dcmp: seq<char> := decompress(s); forall i: int :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
     decreases s
   {
-    helpDecompress(s, s[0] == '\\', false, '\0', 1)
+    helpDecompress(s, s[0] == '\0', false, '\0', 1)
   }
 }
 
@@ -344,7 +344,7 @@ method testCompression()
   var c := new Compression();
   var s := ""AAAABBBBCCCC"";
   s := c.compress(s);
-  assert s == ""\\A4\\B4\\C4"";
+  assert s == ""\0A4\0B4\0C4"";
   s := c.decompress(s);
 }
 
@@ -2029,7 +2029,7 @@ namespace @__default {
       if ((@occ) <= (new BigInteger(3))) {
         return @__default.@RepeatChar(@cur__char, @occ);
       } else {
-        return ((Dafny.Sequence<char>.FromElements('\\')).@Concat(Dafny.Sequence<char>.FromElements(@cur__char))).@Concat(@__default.@ToString(@occ));
+        return ((Dafny.Sequence<char>.FromElements('\0')).@Concat(Dafny.Sequence<char>.FromElements(@cur__char))).@Concat(@__default.@ToString(@occ));
       }
     }
     public Dafny.Sequence<char> @helpCompress(Dafny.Sequence<char> @s, char @cur__char, BigInteger @occ, BigInteger @index) {
@@ -2050,9 +2050,9 @@ namespace @__default {
       if ((@index) >= (new BigInteger((@s).Length))) {
         if (@fnd__esc) {
           if (@fnd__ch) {
-            return (Dafny.Sequence<char>.FromElements('\\')).@Concat(Dafny.Sequence<char>.FromElements(@ch));
+            return (Dafny.Sequence<char>.FromElements('\0')).@Concat(Dafny.Sequence<char>.FromElements(@ch));
           } else {
-            return Dafny.Sequence<char>.FromElements('\\');
+            return Dafny.Sequence<char>.FromElements('\0');
           }
         } else {
           return Dafny.Sequence<char>.FromString("");
@@ -2066,16 +2066,16 @@ namespace @__default {
               if ((@_396_occ) > (new BigInteger(3))) {
                 return (@__default.@RepeatChar(@ch, @_396_occ)).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger((@_395_integer).Length))));
               } else {
-                return (((Dafny.Sequence<char>.FromElements('\\')).@Concat(Dafny.Sequence<char>.FromElements(@ch))).@Concat(Dafny.Sequence<char>.FromElements((@s).Select(@index)))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger((@_395_integer).Length))));
+                return (((Dafny.Sequence<char>.FromElements('\0')).@Concat(Dafny.Sequence<char>.FromElements(@ch))).@Concat(Dafny.Sequence<char>.FromElements((@s).Select(@index)))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger((@_395_integer).Length))));
               }
             } else {
-              return ((Dafny.Sequence<char>.FromElements('\\')).@Concat(Dafny.Sequence<char>.FromElements(@ch))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
+              return ((Dafny.Sequence<char>.FromElements('\0')).@Concat(Dafny.Sequence<char>.FromElements(@ch))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
             }
           } else {
             return (this).@helpDecompress(@s, true, true, (@s).Select(@index), (@index) + (new BigInteger(1)));
           }
         } else {
-          if (((@s).Select(@index)) == ('\\')) {
+          if (((@s).Select(@index)) == ('\0')) {
             return (this).@helpDecompress(@s, true, false, '\0', (@index) + (new BigInteger(1)));
           } else {
             return (Dafny.Sequence<char>.FromElements((@s).Select(@index))).@Concat((this).@helpDecompress(@s, false, false, '\0', (@index) + (new BigInteger(1))));
@@ -2084,7 +2084,7 @@ namespace @__default {
       }
     }
     public Dafny.Sequence<char> @decompress(Dafny.Sequence<char> @s) {
-      return (this).@helpDecompress(@s, ((@s).Select(new BigInteger(0))) == ('\\'), false, '\0', new BigInteger(1));
+      return (this).@helpDecompress(@s, ((@s).Select(new BigInteger(0))) == ('\0'), false, '\0', new BigInteger(1));
     }
   }
 

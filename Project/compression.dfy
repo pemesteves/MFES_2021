@@ -279,7 +279,7 @@ class Compression {
         if occ <= 3 then
             RepeatChar(cur_char, occ)
         else 
-            ['\\'] + [cur_char] + ToString(occ)
+            ['\0'] + [cur_char] + ToString(occ)
     }
 
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
@@ -324,7 +324,7 @@ class Compression {
         requires |s| > 0
         requires 1 <= index <= |s| 
         requires fnd_ch ==> s[index-1] == ch && index >= 2
-        requires fnd_esc ==> if fnd_ch then s[index - 2] == '\\' else s[index - 1] == '\\'
+        requires fnd_esc ==> if fnd_ch then s[index - 2] == '\0' else s[index - 1] == '\0'
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         //ensures 0 < |helpDecompress(s, fnd_esc, fnd_ch, ch, index)|
         ensures 
@@ -334,9 +334,9 @@ class Compression {
         if index >= |s| then 
             if fnd_esc then 
                 if fnd_ch then
-                    ['\\'] + [ch]  
+                    ['\0'] + [ch]  
                 else 
-                    ['\\']
+                    ['\0']
             else
                 "" 
         else 
@@ -348,13 +348,13 @@ class Compression {
                         if occ > 3 then // If the number is 3 or less, the char won't be repeated
                             RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer|)
                         else 
-                            ['\\'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
+                            ['\0'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
                     else 
-                        ['\\'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
+                        ['\0'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
                 else 
                     helpDecompress(s, true, true, s[index], index + 1)
             else 
-                if s[index] == '\\' then 
+                if s[index] == '\0' then 
                     helpDecompress(s, true, false, '\0', index + 1) 
                 else 
                     [s[index]] + helpDecompress(s, false, false, '\0', index + 1)
@@ -370,7 +370,7 @@ class Compression {
             var dcmp := decompress(s); 
             forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
     {
-        helpDecompress(s, s[0] == '\\', false, '\0', 1)
+        helpDecompress(s, s[0] == '\0', false, '\0', 1)
     } 
 }
 
@@ -379,7 +379,7 @@ method testCompression() {
     
     var s := "AAAABBBBCCCC";
     s := c.compress(s);
-    assert s == "\\A4\\B4\\C4";
+    assert s == "\0A4\0B4\0C4";
 
     s := c.decompress(s);
     //assert s == "AAAABBBBCCCC";
