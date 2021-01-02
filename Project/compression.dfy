@@ -52,8 +52,8 @@ method GetByteArrayFromString(s: string) returns (b: array?<byte>)
     }
 }
 
-// Useful to convert Dafny strings into arrays of characters.
-method {:verify false} copy(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream, isCompression: bool) returns (success:bool)
+
+method {:verify false} callCompression(ghost env:HostEnvironment, src_name:array<char>, src:FileStream, dst:FileStream, isCompression: bool) returns (success:bool)
     requires env.Valid() && env.ok.ok();
 		requires src_name[..] == src.Name();
 		requires src.Name() in env.files.state() && dst.Name() in env.files.state();
@@ -192,33 +192,8 @@ method {:main} Main(ghost env:HostEnvironment)
         return;
     }
 
-    ok := copy(env, src, src_stream, dst_stream, isCompression);
-
-    var c := new Compression();
-    var s := "AAAABBBBCCCC";
-    print s + "\n";
-    s := c.compress(s);
-    print s + "\n";
-    s := c.decompress(s);
-    print s + "\n";
+    ok := callCompression(env, src, src_stream, dst_stream, isCompression);
 }
-
-
-/*
-// A simple test scenario.
-method Main()
-{
-    var compression := new Compression();
-    var s := "aaabbbbbbccc";
-    var comp := compression.compress(s);
-    print comp;
-    assert multiset(s) == multiset("aaa\\b6ccc");
-    var decomp := compression.decompress(comp);
-    assert decomp == s;
-}
-*/
-
-//type T = int // for demo purposes, but could be another type
 
 function method NumDigits(n: int) : int 
     decreases n
@@ -238,14 +213,16 @@ function method ToString(n: int) : string
     else ToString(n / 10) + [(n % 10) as char + '0']
 }
 
-function method IsInt(c: char) : bool 
+predicate method IsInt(c: char) 
+    ensures '0' <= c <= '9' <==> IsInt(c) 
 {
-    if c <= '9' && c >= '0' then true else false 
+    if '0' <= c <= '9' then true else false 
 }
 
-function method IsAlphaChar(c: char) : bool 
+predicate method IsAlphaChar(c: char) 
+    ensures 'A' <= c <= 'Z' || 'a' <= c <= 'z' <==> IsAlphaChar(c)
 {
-    if (c <= 'Z' && c >= 'A') || (c <= 'z' && c >= 'a') then true else false 
+    if ('A' <= c <= 'Z') || ('a' <= c <= 'z') then true else false 
 }
 
 function method GetInt(s: string, n: int) : string
@@ -395,4 +372,15 @@ class Compression {
     {
         helpDecompress(s, s[0] == '\\', false, '\0', 1)
     } 
+}
+
+method testCompression() {
+    var c := new Compression();
+    
+    var s := "AAAABBBBCCCC";
+    s := c.compress(s);
+    assert s == "\\A4\\B4\\C4";
+
+    s := c.decompress(s);
+    //assert s == "AAAABBBBCCCC";
 }
