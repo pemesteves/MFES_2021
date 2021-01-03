@@ -64,12 +64,6 @@ method {:verify false} callCompression(ghost env:HostEnvironment, src_name:array
 		requires src != dst;
 		requires env.files.state()[dst.Name()] == [];
     modifies env, env.files, env.ok, src, dst, src.env, src.env.ok, src.env.files;
-    /*ensures  env.ok != null && success == env.ok.ok();
-    ensures var old_files := old(env.files.state());
-			      success
-            ==>
-            env.files != null &&
-            env.files.state() == old_files[old(dst.Name()) := old(env.files.state()[src_name[..]])]; */   
 {
     var ok, src_len := FileStream.FileLength(src_name, env);
     if !ok {
@@ -134,16 +128,6 @@ method {:verify false} callCompression(ghost env:HostEnvironment, src_name:array
 method {:main} Main(ghost env:HostEnvironment)
   requires env.Valid() && env.ok.ok();
   modifies env, env.files, env.ok;
-  /*ensures var args := old(env.constants.CommandLineArgs());
-          var old_files := old(env.files.state());
-	        if !(|args| == 4 && args[2] in old_files && args[3] !in old(env.files.state()) && |args[1]| == 1 && (args[1][0] == '0' || args[1][0] == '1')) then
-						env == old(env) && env.ok == old(env.ok) && env.ok.ok() == old(env.ok.ok())
-					&& env.files == old(env.files) && env.files.state() == old_files 
-					else
-						env.ok != null && 
-						(env.ok.ok() && |args| == 4 && args[2] in old_files && args[3] !in old(env.files.state()) 
-						==> env.files != null &&
-            env.files.state() == old_files[args[3] := old_files[args[2]]]);*/
 {
     var num_args := HostConstants.NumCommandLineArgs(env);
     if num_args != 4 {
@@ -289,12 +273,10 @@ class Compression {
         requires forall i :: index - occ <= i < index ==>  s[i] == cur_char
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         requires 0 <= cur_char as int < 256
-        ensures 0 < |helpCompress(s, cur_char, occ, index)| //<= |s|
+        ensures 0 < |helpCompress(s, cur_char, occ, index)|
         ensures 
             var cmp := helpCompress(s, cur_char, occ, index);
             (forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256)
-            /*&&
-            (occ > 3 ==> |s| >= 2 + |ToString(occ)|)*/
             &&
             (index >= |s| ==> (occ <= 3 ==> |cmp| == occ) && (occ > 3 ==> |cmp| == 2 + |ToString(occ)|))
     {
@@ -310,7 +292,6 @@ class Compression {
         requires |s| > 0
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         ensures 0 < |compress(s)| 
-        //ensures decompress(compress(s)) == s
         ensures 
             var cmp := compress(s);
             forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256
@@ -326,7 +307,6 @@ class Compression {
         requires fnd_ch ==> s[index-1] == ch && index >= 2
         requires fnd_esc ==> if fnd_ch then s[index - 2] == '\0' else s[index - 1] == '\0'
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
-        //ensures 0 < |helpDecompress(s, fnd_esc, fnd_ch, ch, index)|
         ensures 
             var dcmp := helpDecompress(s, fnd_esc, fnd_ch, ch, index);
             forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
@@ -364,8 +344,6 @@ class Compression {
     function method decompress(s: string) : string 
         requires |s| > 0
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
-        //ensures |s| <= |decompress(s)| 
-        //ensures compress(decompress(s)) == s
         ensures 
             var dcmp := decompress(s); 
             forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
