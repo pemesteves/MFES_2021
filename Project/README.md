@@ -28,8 +28,6 @@ or
 
 I have included a test file: test.txt.
 
-You can test de program by running: `./compression.exe 1 test.txt new_file.txt`
+You can test the program by running: `./compression.exe 1 test.txt new_file.txt`
 
-If you run the the executable with 0 and the new file, the result should be equal to the original file:
-
-`./compression.exe 0 new_file.txt original_file.txt`
+If you run the executable with 0 and the new file `./compression.exe 0 new_file.txt original_file.txt`, the result should be equal to the original file.
