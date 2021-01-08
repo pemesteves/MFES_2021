@@ -42,6 +42,14 @@ fun urlUltimaAcao[t: TracoEx]: URL {
     ultimoTraco[t][Int].url
 }
 
+fun actionID[a: Acao, t: TracoEx]: Int {
+    t.traco.a
+}
+
+pred consecutivas[a1, a2: Acao, t: TracoEx] {
+    all a: t.traco[Int] | a != a1 && a != a2 && actionID[a, t] < actionID[a1, t] && actionID[a, t] > actionID[a2, t]
+}
+
 fact acoesConsecutivas {
-    all disj a1, a2: Acao | TracoEx.traco.a1 = TracoEx.traco.a2 - 1 => a1.url != a2.url
+    all t: TracoEx, disj a1, a2: t.traco[Int] | consecutivas[a1, a2, t] => a1.url != a2.url
 }
