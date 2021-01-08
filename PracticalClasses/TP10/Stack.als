@@ -14,9 +14,10 @@ abstract sig Event {
     // constraints that should hold for each Event
 }
 
-/*fact firstState {
+fact firstState {
     // constraints for the first StackState
-}*/
+    first.elements.isEmpty
+}
 
 pred Init [s: StackState] {
     s.elements.isEmpty
