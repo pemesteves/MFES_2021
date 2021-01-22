@@ -219,8 +219,14 @@ function method GetInt(s: string, n: int) : string
         &&
         (|s| >= n + |integerString|)
 {
-    if n == |s| then "" else 
-    if IsInt(s[n]) then [s[n]] + GetInt(s, n + 1) 
+    if n == |s| || s[n] == '\0' then "" 
+    else if IsInt(s[n]) then 
+        if n + 1 == |s| || s[n + 1] == '\0' then 
+            [s[n]]
+        else 
+            var i := GetInt(s, n + 1);
+            if i == "" then ""
+            else [s[n]] + i 
     else "" 
 }
 
@@ -254,16 +260,16 @@ class Compression {
         requires 0 <= cur_char as int < 256
         ensures 
             var s := repeatOccurences(cur_char, occ);
-            (occ <= 3 ==> |s| == occ) 
+            (occ <= 4 ==> |s| == occ) 
             &&
-            (occ > 3 ==> |s| == 2 + |ToString(occ)|)
+            (occ > 4 ==> |s| == 3 + |ToString(occ)|)
             &&
             forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
     {
-        if occ <= 3 then
+        if occ <= 4 then
             RepeatChar(cur_char, occ)
         else 
-            ['\0'] + [cur_char] + ToString(occ)
+            ['\0'] + [cur_char] + ToString(occ) + ['\0']
     }
 
     function method helpCompress(s: string, cur_char: char, occ: int, index: int) : string
@@ -278,7 +284,12 @@ class Compression {
             var cmp := helpCompress(s, cur_char, occ, index);
             (forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256)
             &&
-            (index >= |s| ==> (occ <= 3 ==> |cmp| == occ) && (occ > 3 ==> |cmp| == 2 + |ToString(occ)|))
+            (index >= |s| ==> cmp == repeatOccurences(cur_char, occ))
+            &&
+            (index < |s| ==> 
+                (s[index] == cur_char ==> cmp == helpCompress(s, cur_char, occ + 1, index + 1)
+                &&
+                (s[index] != cur_char ==> cmp == repeatOccurences(cur_char, occ) + helpCompress(s, s[index], 1, index + 1))))
     {
         if index >= |s| then 
             repeatOccurences(cur_char, occ)
@@ -291,10 +302,12 @@ class Compression {
     function method compress(s: string) : string 
         requires |s| > 0
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
-        ensures 0 < |compress(s)| 
+        ensures 0 < |compress(s)|
         ensures 
             var cmp := compress(s);
-            forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256
+            (cmp == helpCompress(s, s[0], 1, 1))
+            &&
+            forall i :: 0 <= i < |cmp| ==> 0 <= cmp[i] as int < 256 
     {
         helpCompress(s, s[0], 1, 1)
     }
@@ -303,13 +316,41 @@ class Compression {
     function method helpDecompress(s: string, fnd_esc: bool, fnd_ch: bool, ch: char, index: int) : string
         decreases |s| - index 
         requires |s| > 0
-        requires 1 <= index <= |s| 
+        requires 1 <= index <= |s| + 1
+        requires index > |s| ==> !fnd_ch && !fnd_esc
         requires fnd_ch ==> s[index-1] == ch && index >= 2
         requires fnd_esc ==> if fnd_ch then s[index - 2] == '\0' else s[index - 1] == '\0'
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         ensures 
             var dcmp := helpDecompress(s, fnd_esc, fnd_ch, ch, index);
-            forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
+            (forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256)
+            &&
+            (index >= |s| ==> 
+                (fnd_esc ==> 
+                    (fnd_ch ==> dcmp == ['\0'] + [ch])
+                    &&
+                    (!fnd_ch ==> dcmp == ['\0'])) 
+                &&
+                (!fnd_esc ==> dcmp == ""))
+            &&
+            (index < |s| ==> 
+                (fnd_esc ==> 
+                    (fnd_ch ==> 
+                        var integer := GetInt(s, index);
+                        (|integer| > 0 ==> 
+                            var occ := ParseInt(integer, |integer| - 1);
+                            (occ > 4 ==> dcmp == RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer| + 1))
+                            &&
+                            (occ <= 4 ==> dcmp == ['\0'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer| + 1)))
+                        &&
+                        (|integer| <= 0 ==> dcmp == ['\0'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)))
+                    &&
+                    (!fnd_ch ==> dcmp == helpDecompress(s, true, true, s[index], index + 1)))
+                &&
+                (!fnd_esc ==> 
+                    (s[index] == '\0' ==> dcmp == helpDecompress(s, true, false, '\0', index + 1))
+                    &&
+                    (s[index] != '\0' ==> dcmp == [s[index]] + helpDecompress(s, false, false, '\0', index + 1))))
     {
         if index >= |s| then 
             if fnd_esc then 
@@ -325,10 +366,10 @@ class Compression {
                     var integer := GetInt(s, index);
                     if |integer| > 0 then 
                         var occ := ParseInt(integer, |integer| - 1);
-                        if occ > 3 then // If the number is 3 or less, the char won't be repeated
-                            RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer|)
+                        if occ > 4 then // If the number is 4 or less, the char won't be repeated
+                            RepeatChar(ch, occ) + helpDecompress(s, false, false, '\0', index + |integer| + 1)
                         else 
-                            ['\0'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer|)
+                            ['\0'] + [ch] + [s[index]] + helpDecompress(s, false, false, '\0', index + |integer| + 1)
                     else 
                         ['\0'] + [ch] + helpDecompress(s, false, false, '\0', index + 1)
                 else 
@@ -346,10 +387,24 @@ class Compression {
         requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
         ensures 
             var dcmp := decompress(s); 
+            (s[0] == '\0' ==> helpDecompress(s, true, false, '\0', 1) == dcmp)
+            &&
+            (s[0] != '\0' ==> [s[0]] + helpDecompress(s, false, false, '\0', 1) == dcmp)
+            && 
             forall i :: 0 <= i < |dcmp| ==> 0 <= dcmp[i] as int < 256
     {
-        helpDecompress(s, s[0] == '\0', false, '\0', 1)
+        if s[0] == '\0' then
+            helpDecompress(s, true, false, '\0', 1)
+        else 
+            [s[0]] + helpDecompress(s, false, false, '\0', 1)
     } 
+
+    lemma {:verify false} identityFunction(s: string)
+        requires |s| > 0
+        requires forall i :: 0 <= i < |s| ==> 0 <= s[i] as int < 256
+        ensures s == decompress(compress(s));
+    {
+    }
 }
 
 method testCompression() {
@@ -357,8 +412,14 @@ method testCompression() {
     
     var s := "AAAABBBBCCCC";
     s := c.compress(s);
-    assert s == "\0A4\0B4\0C4";
+    assert s == "AAAABBBBCCCC";
+
+    s := "AAAAAABBBBCCCC";
+    s := c.compress(s);
+    assert s == "\0A6\0BBBBCCCC";
 
     s := c.decompress(s);
-    //assert s == "AAAABBBBCCCC";
+    assert s == "AAAAAABBBBCCCC";
+
+    assert s == c.decompress(c.compress(s));
 }
